@@ -1,0 +1,73 @@
+# Brings up all four services + MySQL + Redis (Section 3).
+# USE_MOCKS in .env decides which of A, B, D are the real services vs the
+# stub servers in mocks/. Component C is always the real service.
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: emotion_ai
+      MYSQL_USER: emotion_ai
+      MYSQL_PASSWORD: emotion_ai
+      MYSQL_ROOT_PASSWORD: root
+    ports: ["3306:3306"]
+    volumes: ["mysql_data:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  mock-a:
+    build: { context: ., dockerfile: mocks/Dockerfile }
+    command: uvicorn mocks.emotion_mock:app --host 0.0.0.0 --port 8101
+    ports: ["8101:8101"]
+
+  mock-b:
+    build: { context: ., dockerfile: mocks/Dockerfile }
+    command: uvicorn mocks.speech_mock:app --host 0.0.0.0 --port 8102
+    ports: ["8102:8102"]
+
+  mock-d:
+    build: { context: ., dockerfile: mocks/Dockerfile }
+    command: uvicorn mocks.llm_mock:app --host 0.0.0.0 --port 8103
+    ports: ["8103:8103"]
+
+  backend:
+    build: { context: ., dockerfile: app/backend/Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql+pymysql://emotion_ai:emotion_ai@mysql:3306/emotion_ai
+      REDIS_URL: redis://redis:6379/0
+      EMOTION_SERVICE_URL: http://mock-a:8101
+      SPEECH_SERVICE_URL: http://mock-b:8102
+      LLM_SERVICE_URL: http://mock-d:8103
+    ports: ["8000:8000"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mock-a:
+        condition: service_started
+      mock-b:
+        condition: service_started
+      mock-d:
+        condition: service_started
+    restart: on-failure:5
+
+  frontend:
+    build: { context: ./app/frontend }
+    ports: ["5173:5173"]
+    environment:
+      VITE_BACKEND_URL: http://backend:8000
+    depends_on: [backend]
+
+volumes:
+  mysql_data:
