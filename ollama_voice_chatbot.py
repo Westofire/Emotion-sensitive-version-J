@@ -1,7 +1,7 @@
 """
 Simple voice chatbot:
 - Ollama (Qwen 2.5 7B Instruct) generates the text response
-- Parler-TTS speaks it back with matching emotion
+- Chatterbox speaks it back with matching emotion
 
 Ollama model:
     qwen2.5-7b-4060
@@ -11,7 +11,7 @@ This model is configured for:
     - 100% GPU on an 8 GB RTX 4060
 
 Requirements:
-    pip install requests soundfile sounddevice
+    pip install requests soundfile sounddevice chatterbox-tts
 
 Run:
     ollama serve
@@ -22,7 +22,7 @@ import os
 import requests
 import soundfile as sf
 import sounddevice as sd
-from parler_emotion_tts import ParlerEmotionTTS
+from chatterbox_emotion_tts import ChatterboxEmotionTTS
 
 
 # ---------------------------------------------------------
@@ -151,11 +151,9 @@ def ask_ollama(messages: list) -> str:
 
 def main():
 
-    print("Loading Parler-TTS...")
+    print("Loading Chatterbox...")
 
-    tts = ParlerEmotionTTS(
-        model_name="parler-tts/parler-tts-mini-v1"
-    )
+    tts = ChatterboxEmotionTTS()
 
     output_dir = "audio_outputs"
     os.makedirs(output_dir, exist_ok=True)
